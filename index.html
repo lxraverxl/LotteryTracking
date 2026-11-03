@@ -1,3 +1,5 @@
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,7 +16,6 @@
     --text: #f4f4f4;
     --muted: #aaa;
     --accent: #d3b35a;
-    --red: #e04b4b;
   }
 
   * { box-sizing: border-box; }
@@ -28,7 +29,6 @@
   }
 
   main { max-width: 1200px; margin: 0 auto; }
-
   h1 { margin: 0 0 6px; }
   .hint { color: var(--muted); margin: 0 0 20px; }
 
@@ -73,50 +73,101 @@
 
   .slot {
     position: relative;
-    min-height: 112px;
+    min-height: 132px;
     padding: 8px;
     background: var(--tile);
     border: 1px solid var(--line);
     border-radius: 8px;
     overflow: hidden;
+    isolation: isolate;
   }
 
   .slot-top {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 7px;
+    gap: 6px;
+    margin-bottom: 9px;
   }
 
   .slot-number {
-    font-size: 19px;
-    font-weight: bold;
     color: var(--accent);
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: .04em;
   }
-
-  .slot-pick {
-    display: block;
-    width: 100%;
-    min-height: 58px;
-    text-align: left;
-    line-height: 1.25;
-    background: #202020;
-    border-color: #3e3e3e;
-  }
-
-  .slot-pick.empty { color: #888; font-style: italic; }
 
   .sold-button {
     padding: 3px 7px;
     color: #ffb1b1;
     border-color: #704040;
+    font-size: 12px;
   }
 
-  /* The sold-out X is centered over the entire box. */
+  .slot-pick {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-height: 84px;
+    padding: 8px;
+    text-align: left;
+    background: #202020;
+    border-color: #3e3e3e;
+  }
+
+  .slot-pick.empty {
+    min-height: 84px;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .slot-pick.empty:hover,
+  .slot-pick.empty:focus-visible {
+    background: rgba(255, 255, 255, .04);
+    border-color: #555;
+  }
+
+  .game-name {
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .game-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .price-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid #b89b4a;
+    border-radius: 999px;
+    background: #51431d;
+    color: #ffe28a;
+    font-size: 13px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .ticket-number {
+    color: #bbb;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
   .slot.sold::after {
     content: "X";
     position: absolute;
     inset: 0;
+    z-index: 2;
     display: grid;
     place-items: center;
     color: rgba(255, 45, 45, .55);
@@ -153,8 +204,6 @@
     border-radius: 6px;
   }
 
-  .game-row small { color: var(--muted); }
-
   dialog {
     width: min(640px, calc(100% - 24px));
     max-height: 85vh;
@@ -164,7 +213,7 @@
     border-radius: 10px;
   }
 
-  dialog::backdrop { background: rgba(0,0,0,.75); }
+  dialog::backdrop { background: rgba(0, 0, 0, .75); }
 
   .dialog-head {
     display: flex;
@@ -185,6 +234,13 @@
   .result small { display: block; color: var(--muted); }
   .empty-note { color: var(--muted); }
 
+  .empty-option {
+    width: 100%;
+    text-align: left;
+    background: #303030;
+    border: 1px dashed #777;
+  }
+
   footer {
     margin: 28px auto 0;
     padding-top: 14px;
@@ -197,7 +253,7 @@
   @media (max-width: 800px) {
     body { padding: 12px; }
     .board { grid-template-columns: repeat(4, minmax(75px, 1fr)); gap: 7px; }
-    .slot { min-height: 105px; padding: 6px; }
+    .slot { min-height: 128px; padding: 6px; }
   }
 
   @media (max-width: 480px) {
@@ -208,7 +264,7 @@
 <body>
 <main>
   <h1>CT Lottery</h1>
-  <p class="hint">Click a box to search and assign a game. Use the X button to mark it sold out.</p>
+  <p class="hint">Click a box to choose a game. Use the sold-out button to mark it sold out.</p>
 
   <div class="toolbar">
     <button id="exportButton" type="button">Download backup</button>
@@ -250,7 +306,7 @@
     <div id="gameList" class="game-list"></div>
   </details>
 
-  <footer>lxraverxl© 2026</footer>
+  <footer>lxraverxl© --  2026</footer>
 </main>
 
 <dialog id="picker">
@@ -403,8 +459,14 @@ function saveState() {
   document.getElementById("saveStatus").textContent = "Saved in this browser";
 }
 
-function gameLabel(game) {
-  return `${game.name} (${game.number})`;
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
 }
 
 function renderBoard() {
@@ -413,6 +475,7 @@ function renderBoard() {
 
   for (let n = 1; n <= 56; n++) {
     const assignment = state.slots[n];
+    const hasGame = Boolean(assignment?.name);
     const tile = document.createElement("div");
     tile.className = "slot" + (assignment?.sold ? " sold" : "");
 
@@ -421,13 +484,15 @@ function renderBoard() {
 
     const number = document.createElement("span");
     number.className = "slot-number";
-    number.textContent = n;
+    number.textContent = `BOX ${n}`;
 
     const sold = document.createElement("button");
     sold.className = "sold-button";
     sold.type = "button";
-    sold.textContent = assignment?.sold ? "Clear X" : "Sold out";
-    sold.title = "Toggle sold-out mark";
+    sold.textContent = assignment?.sold ? "Mark available" : "Sold out";
+    sold.title = assignment?.sold
+      ? "Remove sold-out mark"
+      : "Mark this box sold out";
     sold.addEventListener("click", () => {
       if (!state.slots[n]) {
         state.slots[n] = { name: "", number: "", price: "", sold: true };
@@ -442,10 +507,35 @@ function renderBoard() {
 
     const pick = document.createElement("button");
     pick.type = "button";
-    pick.className = "slot-pick" + (assignment?.name ? "" : " empty");
-    pick.textContent = assignment?.name
-      ? `${assignment.name} (${assignment.number})`
-      : "Click to choose a game";
+    pick.className = "slot-pick" + (hasGame ? "" : " empty");
+    pick.setAttribute(
+      "aria-label",
+      hasGame
+        ? `Change game in box ${n}`
+        : `Choose a game for box ${n}`
+    );
+    pick.title = hasGame ? "Click to change or clear game" : "Click to choose a game";
+
+    if (hasGame) {
+      const name = document.createElement("span");
+      name.className = "game-name";
+      name.textContent = assignment.name;
+
+      const details = document.createElement("span");
+      details.className = "game-details";
+
+      const price = document.createElement("span");
+      price.className = "price-badge";
+      price.textContent = assignment.price;
+
+      const ticket = document.createElement("span");
+      ticket.className = "ticket-number";
+      ticket.textContent = `Ticket #${assignment.number}`;
+
+      details.append(price, ticket);
+      pick.append(name, details);
+    }
+
     pick.addEventListener("click", () => openPicker(n));
 
     tile.append(top, pick);
@@ -462,10 +552,39 @@ function openPicker(slotNumber) {
   document.getElementById("search").focus();
 }
 
+function clearActiveSlot() {
+  const previous = state.slots[activeSlot];
+  const sold = previous?.sold || false;
+
+  if (sold) {
+    state.slots[activeSlot] = {
+      name: "",
+      number: "",
+      price: "",
+      sold: true
+    };
+  } else {
+    delete state.slots[activeSlot];
+  }
+
+  saveState();
+  renderBoard();
+  document.getElementById("picker").close();
+}
+
 function renderResults() {
   const query = document.getElementById("search").value.trim().toLowerCase();
   const price = document.getElementById("priceFilter").value;
   const results = document.getElementById("results");
+
+  results.innerHTML = "";
+
+  const emptyButton = document.createElement("button");
+  emptyButton.type = "button";
+  emptyButton.className = "empty-option";
+  emptyButton.textContent = "Leave box empty / Clear game";
+  emptyButton.addEventListener("click", clearActiveSlot);
+  results.append(emptyButton);
 
   const matches = state.games.filter(game => {
     const matchesPrice = !price || game.price === price;
@@ -473,11 +592,11 @@ function renderResults() {
     return matchesPrice && text.includes(query);
   });
 
-  results.innerHTML = "";
-
   if (!matches.length) {
-    results.innerHTML =
-      '<p class="empty-note">No matching games. Add it below under “Manage game list.”</p>';
+    const note = document.createElement("p");
+    note.className = "empty-note";
+    note.textContent = "No matching games. Add it below under “Manage game list.”";
+    results.append(note);
     return;
   }
 
@@ -486,7 +605,7 @@ function renderResults() {
     button.className = "result";
     button.type = "button";
     button.innerHTML =
-      `${escapeHtml(gameLabel(game))}<small>${escapeHtml(game.price)}</small>`;
+      `${escapeHtml(game.name)}<small>${escapeHtml(game.price)} · Ticket #${escapeHtml(game.number)}</small>`;
 
     button.addEventListener("click", () => {
       const previous = state.slots[activeSlot];
@@ -505,16 +624,6 @@ function renderResults() {
   }
 }
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[char]));
-}
-
 function renderGameList() {
   const list = document.getElementById("gameList");
   document.getElementById("gameCount").textContent = state.games.length;
@@ -531,7 +640,7 @@ function renderGameList() {
     row.className = "game-row";
 
     const text = document.createElement("span");
-    text.textContent = `${game.price} — ${gameLabel(game)}`;
+    text.textContent = `${game.price} — ${game.name} — Ticket #${game.number}`;
 
     const remove = document.createElement("button");
     remove.type = "button";
@@ -539,7 +648,7 @@ function renderGameList() {
     remove.textContent = "Remove from list";
     remove.addEventListener("click", () => {
       if (!confirm(
-        `Remove ${gameLabel(game)} from the game list? Existing board assignments will remain.`
+        `Remove ${game.name} (ticket #${game.number}) from the game list? Existing board assignments will remain.`
       )) return;
 
       state.games = state.games.filter(item => item.id !== game.id);
@@ -623,3 +732,4 @@ document.getElementById("saveStatus").textContent = "Saved in this browser";
 </script>
 </body>
 </html>
+```

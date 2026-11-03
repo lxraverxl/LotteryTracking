@@ -105,18 +105,24 @@
   }
 
   .slot-pick {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    width: 100%;
-    min-height: 84px;
-    padding: 8px;
-    text-align: left;
-    background: #202020;
-    border-color: #3e3e3e;
+   .slot-pick {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 84px;
+  padding: 8px;
+  text-align: left;
+  background: #202020;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-color: #3e3e3e;
+}
+
   }
 
   .slot-pick.empty {
@@ -539,6 +545,13 @@ function renderBoard() {
     const pick = document.createElement("button");
     pick.type = "button";
     pick.className = "slot-pick" + (hasGame ? "" : " empty");
+
+if (hasGame) {
+  const imageUrl = `images/${encodeURIComponent(assignment.number)}.jpg`;
+  pick.style.backgroundImage =
+    `linear-gradient(rgba(0, 0, 0, .42), rgba(0, 0, 0, .42)), url("${imageUrl}")`;
+}
+
     pick.setAttribute(
       "aria-label",
       hasGame

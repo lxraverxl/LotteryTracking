@@ -26,7 +26,7 @@
     font: 16px/1.4 Arial, sans-serif;
   }
 
-  main { max-width: 1200px; margin: 0 auto; }
+  main { max-width: 1600px; margin: 0 auto; }
   h1 { margin: 0 0 6px; }
   .hint { color: var(--muted); margin: 0 0 20px; }
 
@@ -65,7 +65,7 @@
 
   .board {
     display: grid;
-    grid-template-columns: repeat(7, minmax(100px, 1fr));
+    grid-template-columns: repeat(9, minmax(0, 1fr));
     gap: 10px;
   }
 
@@ -248,9 +248,13 @@
     font-size: 13px;
   }
 
+  @media (max-width: 1100px) {
+    .board { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  }
+
   @media (max-width: 800px) {
     body { padding: 12px; }
-    .board { grid-template-columns: repeat(4, minmax(75px, 1fr)); gap: 7px; }
+    .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
     .slot { min-height: 128px; padding: 6px; }
   }
 
@@ -500,7 +504,7 @@ function renderBoard() {
   const board = document.getElementById("board");
   board.innerHTML = "";
 
-  for (let n = 1; n <= 56; n++) {
+  for (let n = 1; n <= 65; n++) {
     const assignment = state.slots[n];
     const hasGame = Boolean(assignment?.name);
     const tile = document.createElement("div");

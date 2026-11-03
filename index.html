@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CT Lottery Game Board</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #111;
+    --panel: #1c1c1c;
+    --tile: #292929;
+    --line: #484848;
+    --text: #f4f4f4;
+    --muted: #aaa;
+    --accent: #d3b35a;
+    --red: #e04b4b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.4 Arial, sans-serif;
+  }
+
+  main { max-width: 1200px; margin: 0 auto; }
+
+  h1 { margin: 0 0 6px; }
+  .hint { color: var(--muted); margin: 0 0 20px; }
+
+  .toolbar, .add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: end;
+    padding: 14px;
+    margin-bottom: 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  label {
+    display: grid;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  input, select, button {
+    font: inherit;
+    color: var(--text);
+    background: #101010;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 9px 11px;
+  }
+
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .primary { background: #67551e; border-color: var(--accent); }
+  .danger { color: #ffb1b1; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(100px, 1fr));
+    gap: 10px;
+  }
+
+  .slot {
+    position: relative;
+    min-height: 112px;
+    padding: 8px;
+    background: var(--tile);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .slot-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+  }
+
+  .slot-number {
+    font-size: 19px;
+    font-weight: bold;
+    color: var(--accent);
+  }
+
+  .slot-pick {
+    display: block;
+    width: 100%;
+    min-height: 58px;
+    text-align: left;
+    line-height: 1.25;
+    background: #202020;
+    border-color: #3e3e3e;
+  }
+
+  .slot-pick.empty { color: #888; font-style: italic; }
+
+  .sold-button {
+    padding: 3px 7px;
+    color: #ffb1b1;
+    border-color: #704040;
+  }
+
+  /* The sold-out X is centered over the entire box. */
+  .slot.sold::after {
+    content: "X";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgba(255, 45, 45, .55);
+    font-size: clamp(48px, 8vw, 82px);
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, .35);
+  }
+
+  details {
+    margin-top: 24px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  summary { cursor: pointer; font-weight: bold; }
+
+  .game-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .game-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 9px;
+    background: #252525;
+    border-radius: 6px;
+  }
+
+  .game-row small { color: var(--muted); }
+
+  dialog {
+    width: min(640px, calc(100% - 24px));
+    max-height: 85vh;
+    color: var(--text);
+    background: #1b1b1b;
+    border: 1px solid #666;
+    border-radius: 10px;
+  }
+
+  dialog::backdrop { background: rgba(0,0,0,.75); }
+
+  .dialog-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .search-row {
+    display: grid;
+    grid-template-columns: 1fr 150px;
+    gap: 8px;
+  }
+
+  #search { width: 100%; }
+  #results { display: grid; gap: 7px; margin-top: 12px; }
+  .result { text-align: left; }
+  .result small { display: block; color: var(--muted); }
+  .empty-note { color: var(--muted); }
+
+  footer {
+    margin: 28px auto 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    text-align: center;
+    font-size: 13px;
+  }
+
+  @media (max-width: 800px) {
+    body { padding: 12px; }
+    .board { grid-template-columns: repeat(4, minmax(75px, 1fr)); gap: 7px; }
+    .slot { min-height: 105px; padding: 6px; }
+  }
+
+  @media (max-width: 480px) {
+    .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>CT Lottery</h1>
+  <p class="hint">Click a box to search and assign a game. Use the X button to mark it sold out.</p>
+
+  <div class="toolbar">
+    <button id="exportButton" type="button">Download backup</button>
+    <button id="importButton" type="button">Restore backup</button>
+    <input id="importFile" type="file" accept=".json,application/json" hidden>
+    <span id="saveStatus" class="hint"></span>
+  </div>
+
+  <section id="board" class="board" aria-label="Numbered game board"></section>
+
+  <details>
+    <summary>Manage game list (<span id="gameCount">0</span>)</summary>
+
+    <form id="addForm" class="add-form">
+      <label>Price
+        <select id="newPrice" required>
+          <option value="$1">$1</option>
+          <option value="$2">$2</option>
+          <option value="$3">$3</option>
+          <option value="$5">$5</option>
+          <option value="$10">$10</option>
+          <option value="$20">$20</option>
+          <option value="$30">$30</option>
+          <option value="$50">$50</option>
+        </select>
+      </label>
+
+      <label>Game name
+        <input id="newName" required placeholder="Example: Holiday Cash 100X">
+      </label>
+
+      <label>Game number
+        <input id="newNumber" required placeholder="1848">
+      </label>
+
+      <button class="primary" type="submit">Add game</button>
+    </form>
+
+    <div id="gameList" class="game-list"></div>
+  </details>
+
+  <footer>lxraverxl© 2026</footer>
+</main>
+
+<dialog id="picker">
+  <div class="dialog-head">
+    <h2>Choose a game</h2>
+    <button id="closePicker" type="button">Close</button>
+  </div>
+
+  <div class="search-row">
+    <input id="search" type="search" placeholder="Search name, number, or price">
+    <select id="priceFilter">
+      <option value="">All prices</option>
+      <option>$1</option>
+      <option>$2</option>
+      <option>$3</option>
+      <option>$5</option>
+      <option>$10</option>
+      <option>$20</option>
+      <option>$30</option>
+      <option>$50</option>
+    </select>
+  </div>
+
+  <div id="results"></div>
+</dialog>
+
+<script>
+const STORAGE_KEY = "scratchGameBoardPrototypeV1";
+
+const starterGames = [
+  ["$1", "$1 Monopoly", "1888"],
+  ["$1", "$50 Loaded!", "1870"],
+  ["$1", "10X The Cash", "1863"],
+  ["$1", "2026", "1826"],
+  ["$1", "5X", "1808"],
+  ["$1", "7-11-21 Tripler", "1842"],
+  ["$1", "Hit $50", "1831"],
+  ["$1", "Hit $50", "1880"],
+  ["$1", "Holiday Cash 10X", "1845"],
+  ["$1", "Hot 7's", "1884"],
+  ["$1", "Tic Tac Multiplier", "1901"],
+
+  ["$2", "$100 Loaded!", "1871"],
+  ["$2", "$2 Monopoly", "1889"],
+  ["$2", "20X", "1809"],
+  ["$2", "20X The Cash", "1864"],
+  ["$2", "20x The Cash", "1899"],
+  ["$2", "7-11-21 10X", "1892"],
+  ["$2", "777", "1859"],
+  ["$2", "Big Bucks", "1838"],
+  ["$2", "Green Gold", "1867"],
+  ["$2", "Hit $100", "1832"],
+  ["$2", "Holiday Cash 20X", "1846"],
+  ["$2", "Lucky Corners", "1792"],
+  ["$2", "Pharaohs Gold", "1794"],
+  ["$2", "Winner Winner Chicken Dinner", "1920"],
+
+  ["$3", "$30,000 Cashword", "1853"],
+  ["$3", "3X The Cash", "1883"],
+  ["$3", "Diamond Bingo", "1868"],
+  ["$3", "Loteria", "1861"],
+  ["$3", "Loteria", "1895"],
+  ["$3", "Money Box Bingo", "1841"],
+  ["$3", "Pay Raise", "1770"],
+  ["$3", "Super Cash Wheel", "1793"],
+  ["$3", "Treasure Hunt", "1906"],
+  ["$3", "Twisted Treasure", "1881"],
+
+  ["$5", "$250 Loaded!", "1872"],
+  ["$5", "$5 Monopoly", "1890"],
+  ["$5", "$50,000 Cashword", "1830"],
+  ["$5", "50X", "1810"],
+  ["$5", "50X The Cash", "1865"],
+  ["$5", "5X The Money", "1812"],
+  ["$5", "5X The Money", "1915"],
+  ["$5", "America 250 Connecticut", "1893"],
+  ["$5", "Connecticut Apizza", "1904"],
+  ["$5", "Extreme Green", "1877"],
+  ["$5", "Fireball 7's", "1885"],
+  ["$5", "Flaming Hot 7's", "1835"],
+  ["$5", "Full of $250's", "1854"],
+  ["$5", "Hit $250", "1833"],
+  ["$5", "Holiday Cash 50X", "1847"],
+  ["$5", "Lady Luck", "1869"],
+  ["$5", "Money Rush", "1817"],
+  ["$5", "Uconn", "1862"],
+  ["$5", "Uconn Championship Cash", "1827"],
+
+  ["$10", "$10 Million Cash Blowout", "1844"],
+  ["$10", "$10 Million Cash Blowout", "1916"],
+  ["$10", "$10 Monopoly", "1891"],
+  ["$10", "$100,000 Cashword", "1878"],
+  ["$10", "$500 Loaded!", "1873"],
+  ["$10", "100X", "1811"],
+  ["$10", "100X The Cash", "1866"],
+  ["$10", "10X The Cash", "1805"],
+  ["$10", "Game of Thrones", "1824"],
+  ["$10", "Hit $500", "1834"],
+  ["$10", "Holiday Cash 100X", "1848"],
+  ["$10", "Pinball Wizard", "1857"],
+  ["$10", "Red Hot 10's", "1886"],
+  ["$10", "Scorching Hot 7's", "1836"],
+  ["$10", "Triple Red 777's", "1852"],
+  ["$10", "X The Money", "1894"],
+
+  ["$20", "$100, $200 or $500", "1858"],
+  ["$20", "$100, $200 or $500", "1905"],
+  ["$20", "$250,000 Cashword", "1879"],
+  ["$20", "200X", "1856"],
+  ["$20", "20X The Cash", "1813"],
+  ["$20", "Lucky 7 Tripler", "1887"],
+
+  ["$30", "$500,000 Cashword", "1800"],
+  ["$30", "Fabulous Fortune", "1860"],
+  ["$30", "Win Big", "1816"],
+
+  ["$50", "Best Chance To Be A Millionaire", "1850"]
+];
+
+function makeId() {
+  return "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function initialState() {
+  return {
+    games: starterGames.map(([price, name, number]) => ({
+      id: makeId(),
+      price,
+      name,
+      number
+    })),
+    slots: {}
+  };
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : initialState();
+  } catch {
+    return initialState();
+  }
+}
+
+let state = loadState();
+let activeSlot = null;
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  document.getElementById("saveStatus").textContent = "Saved in this browser";
+}
+
+function gameLabel(game) {
+  return `${game.name} (${game.number})`;
+}
+
+function renderBoard() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  for (let n = 1; n <= 56; n++) {
+    const assignment = state.slots[n];
+    const tile = document.createElement("div");
+    tile.className = "slot" + (assignment?.sold ? " sold" : "");
+
+    const top = document.createElement("div");
+    top.className = "slot-top";
+
+    const number = document.createElement("span");
+    number.className = "slot-number";
+    number.textContent = n;
+
+    const sold = document.createElement("button");
+    sold.className = "sold-button";
+    sold.type = "button";
+    sold.textContent = assignment?.sold ? "Clear X" : "Sold out";
+    sold.title = "Toggle sold-out mark";
+    sold.addEventListener("click", () => {
+      if (!state.slots[n]) {
+        state.slots[n] = { name: "", number: "", price: "", sold: true };
+      } else {
+        state.slots[n].sold = !state.slots[n].sold;
+      }
+      saveState();
+      renderBoard();
+    });
+
+    top.append(number, sold);
+
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "slot-pick" + (assignment?.name ? "" : " empty");
+    pick.textContent = assignment?.name
+      ? `${assignment.name} (${assignment.number})`
+      : "Click to choose a game";
+    pick.addEventListener("click", () => openPicker(n));
+
+    tile.append(top, pick);
+    board.append(tile);
+  }
+}
+
+function openPicker(slotNumber) {
+  activeSlot = slotNumber;
+  document.getElementById("search").value = "";
+  document.getElementById("priceFilter").value = "";
+  document.getElementById("picker").showModal();
+  renderResults();
+  document.getElementById("search").focus();
+}
+
+function renderResults() {
+  const query = document.getElementById("search").value.trim().toLowerCase();
+  const price = document.getElementById("priceFilter").value;
+  const results = document.getElementById("results");
+
+  const matches = state.games.filter(game => {
+    const matchesPrice = !price || game.price === price;
+    const text = `${game.name} ${game.number} ${game.price}`.toLowerCase();
+    return matchesPrice && text.includes(query);
+  });
+
+  results.innerHTML = "";
+
+  if (!matches.length) {
+    results.innerHTML =
+      '<p class="empty-note">No matching games. Add it below under “Manage game list.”</p>';
+    return;
+  }
+
+  for (const game of matches) {
+    const button = document.createElement("button");
+    button.className = "result";
+    button.type = "button";
+    button.innerHTML =
+      `${escapeHtml(gameLabel(game))}<small>${escapeHtml(game.price)}</small>`;
+
+    button.addEventListener("click", () => {
+      const previous = state.slots[activeSlot];
+      state.slots[activeSlot] = {
+        name: game.name,
+        number: game.number,
+        price: game.price,
+        sold: previous?.sold || false
+      };
+      saveState();
+      renderBoard();
+      document.getElementById("picker").close();
+    });
+
+    results.append(button);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
+function renderGameList() {
+  const list = document.getElementById("gameList");
+  document.getElementById("gameCount").textContent = state.games.length;
+  list.innerHTML = "";
+
+  const sorted = [...state.games].sort((a, b) =>
+    a.price.localeCompare(b.price, undefined, { numeric: true }) ||
+    a.name.localeCompare(b.name) ||
+    a.number.localeCompare(b.number)
+  );
+
+  for (const game of sorted) {
+    const row = document.createElement("div");
+    row.className = "game-row";
+
+    const text = document.createElement("span");
+    text.textContent = `${game.price} — ${gameLabel(game)}`;
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "danger";
+    remove.textContent = "Remove from list";
+    remove.addEventListener("click", () => {
+      if (!confirm(
+        `Remove ${gameLabel(game)} from the game list? Existing board assignments will remain.`
+      )) return;
+
+      state.games = state.games.filter(item => item.id !== game.id);
+      saveState();
+      renderGameList();
+      renderResults();
+    });
+
+    row.append(text, remove);
+    list.append(row);
+  }
+}
+
+document.getElementById("search").addEventListener("input", renderResults);
+document.getElementById("priceFilter").addEventListener("change", renderResults);
+
+document.getElementById("closePicker").addEventListener("click", () => {
+  document.getElementById("picker").close();
+});
+
+document.getElementById("addForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const price = document.getElementById("newPrice").value;
+  const name = document.getElementById("newName").value.trim();
+  const number = document.getElementById("newNumber").value.trim();
+
+  if (!name || !number) return;
+
+  state.games.push({ id: makeId(), price, name, number });
+  saveState();
+  renderGameList();
+  event.target.reset();
+  document.getElementById("newPrice").value = "$1";
+});
+
+document.getElementById("exportButton").addEventListener("click", () => {
+  const file = new Blob([JSON.stringify(state, null, 2)], {
+    type: "application/json"
+  });
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(file);
+  link.download = "game-board-backup.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+
+document.getElementById("importButton").addEventListener("click", () => {
+  document.getElementById("importFile").click();
+});
+
+document.getElementById("importFile").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const imported = JSON.parse(await file.text());
+
+    if (!Array.isArray(imported.games) ||
+        !imported.slots ||
+        typeof imported.slots !== "object") {
+      throw new Error("That file does not look like a game-board backup.");
+    }
+
+    state = imported;
+    saveState();
+    renderBoard();
+    renderGameList();
+    alert("Backup restored.");
+  } catch (error) {
+    alert("Could not restore that file: " + error.message);
+  }
+
+  event.target.value = "";
+});
+
+renderBoard();
+renderGameList();
+document.getElementById("saveStatus").textContent = "Saved in this browser";
+</script>
+</body>
+</html>
